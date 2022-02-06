@@ -18,9 +18,8 @@ In his 2006 reserch paper Mebane Faber describes a simple investment strategy, b
 
 For more information refer to [Extrategic Dashboard](https://extradash.com/en/strategies/models/5/faber-tactical-asset-allocation/) that contains a detailed description of the strategy.
 
-Use the provided Jupyter Notebook to test the strategy on whatever ticker available on Yahoo!® Finance.
+Launch the streamlit app to test the strategy on whatever ticker available on Yahoo!® Finance.
 
 # ToDo
-* Set a custom starting point
+* Add trading costs
 * Calculate comparison statistics
-* Try a delayed buy signal to reduce whipsaw effects
