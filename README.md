@@ -3,6 +3,8 @@ See results of the Meb Faber Tactical Asset Allocation (TAA) strategy on whateve
 
 [yfinance](https://github.com/ranaroussi/yfinance) is used to query Yahoo!® Finance APIs.
 
+Run it from here without the need to install anything: https://share.streamlit.io/mmoraschini/faber-taa/main
+
 # Disclaimer #1
 See https://github.com/ranaroussi/yfinance:
 
@@ -18,7 +20,7 @@ In his 2006 reserch paper Mebane Faber describes a simple investment strategy, b
 
 For more information refer to [Extrategic Dashboard](https://extradash.com/en/strategies/models/5/faber-tactical-asset-allocation/) that contains a detailed description of the strategy.
 
-Launch the streamlit app to test the strategy on whatever ticker available on Yahoo!® Finance.
+You can either clone the repo and launch the streamlit app or access it from https://share.streamlit.io/mmoraschini/faber-taa/main.
 
 # ToDo
 * Add trading costs
