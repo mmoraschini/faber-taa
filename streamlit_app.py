@@ -1,5 +1,5 @@
 from typing import Tuple, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import yfinance as yf
 import numpy as np
@@ -11,9 +11,22 @@ import streamlit as st
 pd.options.mode.chained_assignment = None
 
 
-def load_history(ticker_symbol: str, month: Union[int, str], year: Union[int, str]) -> pd.DataFrame:
+class TickerNotFoundException(Exception):
+    def __init__(self, message):            
+        super().__init__(message)
+        self.message = message
+    
+    def __str__(self):
+        return self.message
+
+
+def load_history(ticker_symbol: str, month: Union[int, str], year: Union[int, str]) -> Tuple[yf.Ticker, pd.DataFrame]:
     ticker = yf.Ticker(ticker_symbol)
     history = ticker.history("max")
+
+    if len(history) == 0:
+        raise TickerNotFoundException("Ticker " + ticker_symbol + " not found")
+    
     history["Month"] = history.index.to_period("M")
 
     history = history.loc[:, ["Close", "Month"]]
@@ -24,11 +37,7 @@ def load_history(ticker_symbol: str, month: Union[int, str], year: Union[int, st
     first_dom = history.index[-1].to_period("M").to_timestamp()
     history = history[history.index < first_dom]
 
-    if (month != "max") and (year != "max"):
-        start_date = datetime(int(year), int(month), 1)
-        history = history[history.index >= start_date]
-
-    return history
+    return ticker, history
 
 
 def calc_10month_sma(history: pd.DataFrame) -> pd.DataFrame:
@@ -126,14 +135,17 @@ def plot_evolution(symbol: str, history: pd.DataFrame, bh_evolution: pd.Series,
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=history.index, y=bh_evolution,
                         mode="lines",
-                        name="Original"))
+                        name="Buy and hold"))
     fig.add_trace(go.Scatter(x=history.index, y=strategy_evolution,
                         mode="lines",
                         name="Strategy"))
     fig.add_trace(go.Scatter(x=flat_zones.index, y=flat_zones,
                         mode="lines",
-                        name="Flat zones"))
+                        name="Out of market periods"))
     
+    p = fig.data[0]
+    p.on_click()
+
     if log:
         y_label = "Log Close Price"
     else:
@@ -147,9 +159,18 @@ def plot_evolution(symbol: str, history: pd.DataFrame, bh_evolution: pd.Series,
     st.plotly_chart(fig)
 
 
-st.title("Meb Faber Tactical Asset Allocation (TAA)")
-st.subheader("Ticker and parameters")
+SYM = None
+MONTH = None
+YEAR = None
 
+st.title("Meb Faber Tactical Asset Allocation (TAA)")
+
+st.markdown("Repo of this project: https://github.com/mmoraschini/faber-taa")
+st.write("The information obtained from this script is for instructional purposes only and should be verified before \
+using it in any financial strategy. I am not a financial advisor and this project is not meant to give financial advices. \
+Please, contact a registered financial advisor if you are interested in investing your money.")
+
+st.subheader("Ticker and parameters")
 with st.form(key="symbol_form"):
     st.markdown("**Symbol to load**")
     st.write("Specify the exchange using a dot followed by the name of the exchange, e.g., 'IWQU.MI'")
@@ -162,7 +183,7 @@ with st.form(key="symbol_form"):
     
     st.markdown("**Taxes and costs**")
     # trad_cost = st.number_input(label="Trading cost", value=float(2.95))
-    tax_prc = st.number_input(label="Capital gain %", value=float(26))
+    tax_prc = st.number_input(label="Capital gain tax (%)", value=float(26))
     ini_amount = st.number_input(label="Initial amount", value=10000)
 
     log = st.checkbox("Log y-axis", value=True)
@@ -170,21 +191,66 @@ with st.form(key="symbol_form"):
 
 if submit_button:
 
-    history = load_history(symbol, month, year)
-    sma = calc_10month_sma(history)
+    try:
+        breakpoint()
+        if (symbol != SYM) | (month != MONTH) | (year != YEAR):
+            ticker, history = load_history(symbol, month, year)
+            SYM = symbol
+            MONTH = month
+            YEAR = year
+            sma = calc_10month_sma(history)
 
-    st.subheader("Buy and sell signals")
+        if (month != "max") ^ (year != "max"):
+            st.warning("To set a starting date both month and year must be different from 'max'")
 
-    plot_signals(symbol, history, sma, log)
+        if (month != "max") & (year != "max"):
+            start_date = datetime(int(year), int(month), 1)
+            history = history[history.index >= start_date]
+            sma = sma[sma.index >= start_date]
 
-    bh_evolution, strategy_evolution, flat_zones = calc_evolution(history, sma, tax_prc, ini_amount)
+            if (sma.index[0].month != int(month)) | (sma.index[0].year != int(year)):
+                st.warning(f"Requested starting date not available. Starting at {sma.index[0].year}-{sma.index[0].month}-1.")
+        
 
-    st.subheader("Evolution of the strategy")
+        st.subheader("Info")
 
-    plot_evolution(symbol, history, bh_evolution, strategy_evolution, flat_zones, log)
+        try:
+            st.write(f"Description: {ticker.info['longName']}")
+        except KeyError:
+            st.write(f"Description: not available")
+        st.write(f"Exchange: {ticker.info['exchange']}")
+        st.write(f"Currency: {ticker.info['currency']}")
 
-# For debugging purposes
+        st.subheader("Buy and sell signals")
+
+        plot_signals(symbol, history, sma, log)
+
+        bh_evolution, strategy_evolution, flat_zones = calc_evolution(history, sma, tax_prc, ini_amount)
+
+        st.subheader("Evolution of the strategy")
+
+        plot_evolution(symbol, history, bh_evolution, strategy_evolution, flat_zones, log)
+
+        st.subheader("Performance")
+
+        delta_years = (bh_evolution.index[-1] - bh_evolution.index[0]) / timedelta(days=365)
+
+        stats_df = pd.DataFrame(index=["Buy and hold", "Strategy"], columns=["Final amount", "CAGR", "Standard deviation"])
+        stats_df.loc["Buy and hold", "Final amount"] = bh_evolution.iloc[-1]
+        stats_df.loc["Strategy", "Final amount"] = strategy_evolution.iloc[-1]
+        stats_df.loc["Buy and hold", "CAGR"] = ((bh_evolution.iloc[-1] / bh_evolution.iloc[0]) ** (1 / delta_years) - 1) * 100
+        stats_df.loc["Strategy", "CAGR"] = ((strategy_evolution.iloc[-1] / strategy_evolution.iloc[0]) ** (1 / delta_years) - 1) * 100
+
+        st.dataframe(stats_df.style.format("{:,.2f}"))
+
+    except TickerNotFoundException as e:
+        st.error(str(e))
+
+# # For debugging purposes
 # if __name__ == "__main__":
-#     history = load_history("^GSPC", "max", "max")
-#     sma = calc_10month_sma(history)
-#     bh_evolution, strategy_evolution, flat_zones = calc_evolution(history, sma, 2.95, 26, 10000)
+#     try:
+#         ticker, history = load_history("IWQU.MI", 3, 2017)
+#         sma = calc_10month_sma(history)
+#         bh_evolution, strategy_evolution, flat_zones = calc_evolution(history, sma, 26, 10000)
+#     except TickerNotFoundException as e:
+#         print(e)
