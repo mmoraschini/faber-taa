@@ -165,7 +165,8 @@ YEAR = None
 st.title("Meb Faber Tactical Asset Allocation (TAA)")
 
 response = requests.get("https://poweredby.yahoo.com/poweredby_yahoo_h_purple.png")
-st.image(BytesIO(response.content))
+img = BytesIO(response.content)
+st.image(img)
 
 st.markdown("Repo of this project: https://github.com/mmoraschini/faber-taa")
 st.write("The information obtained from this script is for instructional purposes only and should be verified before \
