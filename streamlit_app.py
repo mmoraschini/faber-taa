@@ -1,5 +1,7 @@
 from typing import Tuple, Union
 from datetime import datetime, timedelta
+import requests
+from io import BytesIO
 
 import yfinance as yf
 import numpy as np
@@ -142,9 +144,6 @@ def plot_evolution(symbol: str, history: pd.DataFrame, bh_evolution: pd.Series,
     fig.add_trace(go.Scatter(x=flat_zones.index, y=flat_zones,
                         mode="lines",
                         name="Out of market periods"))
-    
-    p = fig.data[0]
-    p.on_click()
 
     if log:
         y_label = "Log Close Price"
@@ -164,6 +163,9 @@ MONTH = None
 YEAR = None
 
 st.title("Meb Faber Tactical Asset Allocation (TAA)")
+
+response = requests.get("https://poweredby.yahoo.com/poweredby_yahoo_h_purple.png")
+st.image(BytesIO(response.content))
 
 st.markdown("Repo of this project: https://github.com/mmoraschini/faber-taa")
 st.write("The information obtained from this script is for instructional purposes only and should be verified before \
