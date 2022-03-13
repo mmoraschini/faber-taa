@@ -195,7 +195,6 @@ with st.form(key="symbol_form"):
 if submit_button:
 
     try:
-        breakpoint()
         if (symbol != SYM) | (month != MONTH) | (year != YEAR):
             ticker, history = load_history(symbol, month, year)
             SYM = symbol
