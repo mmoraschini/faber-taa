@@ -237,7 +237,7 @@ if submit_button:
 
         delta_years = (bh_evolution.index[-1] - bh_evolution.index[0]) / timedelta(days=365)
 
-        stats_df = pd.DataFrame(index=["Buy and hold", "Strategy"], columns=["Final amount", "CAGR", "Standard deviation"])
+        stats_df = pd.DataFrame(index=["Buy and hold", "Strategy"], columns=["Final amount", "CAGR"])
         stats_df.loc["Buy and hold", "Final amount"] = bh_evolution.iloc[-1]
         stats_df.loc["Strategy", "Final amount"] = strategy_evolution.iloc[-1]
         stats_df.loc["Buy and hold", "CAGR"] = ((bh_evolution.iloc[-1] / bh_evolution.iloc[0]) ** (1 / delta_years) - 1) * 100
