@@ -2,6 +2,7 @@ from typing import Tuple, Union
 from datetime import datetime, timedelta
 import requests
 from io import BytesIO
+import calendar
 
 import yfinance as yf
 import numpy as np
@@ -11,6 +12,10 @@ import streamlit as st
 
 
 pd.options.mode.chained_assignment = None
+
+# The first element is an empty string
+month_names = list(calendar.month_name)[1:]
+years_list = list(range(1900, datetime.today().year + 1))[::-1]
 
 
 class TickerNotFoundException(Exception):
@@ -22,7 +27,7 @@ class TickerNotFoundException(Exception):
         return self.message
 
 
-def load_history(ticker_symbol: str, month: Union[int, str], year: Union[int, str]) -> Tuple[yf.Ticker, pd.DataFrame]:
+def load_history(ticker_symbol: str) -> Tuple[yf.Ticker, pd.DataFrame]:
     ticker = yf.Ticker(ticker_symbol)
     history = ticker.history("max")
 
@@ -36,7 +41,7 @@ def load_history(ticker_symbol: str, month: Union[int, str], year: Union[int, st
     last_dom = history.index[0] + pd.tseries.offsets.BMonthEnd()
     history = history[history.index > last_dom]
 
-    first_dom = history.index[-1].to_period("M").to_timestamp()
+    first_dom = history.index[-1].to_period("M").to_timestamp().tz_localize(history.index.tz)
     history = history[history.index < first_dom]
 
     return ticker, history
@@ -49,7 +54,7 @@ def calc_10month_sma(history: pd.DataFrame) -> pd.DataFrame:
     sma = month_groups.rolling(10).sum().dropna()
     sma["SMA"] = sma["MonthSum"] / sma["MonthCount"]
     sma.drop(["MonthSum", "MonthCount"], axis=1, inplace=True)
-    history.drop(history.index[history.index < sma.index[0].to_timestamp()], inplace=True)
+    history.drop(history.index[history.index < sma.index[0].to_timestamp().tz_localize(history.index.tz)], inplace=True)
     sma.set_index(history.reset_index().groupby("Month").last()["Date"], inplace=True)
     sma["Close"] = history["Close"]
     sma["In"] = (sma["Close"] > sma["SMA"]).astype(int)
@@ -176,13 +181,14 @@ Please, contact a registered financial advisor if you are interested in investin
 st.subheader("Ticker and parameters")
 with st.form(key="symbol_form"):
     st.markdown("**Symbol to load**")
-    st.write("Specify the exchange using a dot followed by the name of the exchange, e.g., 'IWQU.MI'")
+    st.write("If needed specify the exchange using a dot followed by the name of the exchange, e.g., 'IWQU.MI'")
     symbol = st.text_input(label="Enter ticker", value="^GSPC")
 
     st.markdown("**Starting date**")
     month_col, year_col = st.columns(2)
-    month = month_col.selectbox("Month", ["max"] + list(range(1, 13)))
-    year = year_col.selectbox("Year", ["max"] + list(range(1900, datetime.today().year + 1)))
+    
+    month = month_col.selectbox("Month", ["max"] + month_names)
+    year = year_col.selectbox("Year", ["max"] + years_list)
     
     st.markdown("**Taxes and costs**")
     # trad_cost = st.number_input(label="Trading cost", value=float(2.95))
@@ -196,7 +202,7 @@ if submit_button:
 
     try:
         if (symbol != SYM) | (month != MONTH) | (year != YEAR):
-            ticker, history = load_history(symbol, month, year)
+            ticker, history = load_history(symbol)
             SYM = symbol
             MONTH = month
             YEAR = year
@@ -206,11 +212,12 @@ if submit_button:
             st.warning("To set a starting date both month and year must be different from 'max'")
 
         if (month != "max") & (year != "max"):
-            start_date = datetime(int(year), int(month), 1)
+            month_int = month_names.index(month)
+            start_date = datetime(int(year), month_int, 1).replace(tzinfo=history.index.tz)
             history = history[history.index >= start_date]
             sma = sma[sma.index >= start_date]
 
-            if (sma.index[0].month != int(month)) | (sma.index[0].year != int(year)):
+            if (sma.index[0].month != month_int) | (sma.index[0].year != int(year)):
                 st.warning(f"Requested starting date not available. Starting at {sma.index[0].year}-{sma.index[0].month}-1.")
         
 
@@ -251,7 +258,7 @@ if submit_button:
 # # For debugging purposes
 # if __name__ == "__main__":
 #     try:
-#         ticker, history = load_history("IWQU.MI", 3, 2017)
+#         ticker, history = load_history("IWQU.MI")
 #         sma = calc_10month_sma(history)
 #         bh_evolution, strategy_evolution, flat_zones = calc_evolution(history, sma, 26, 10000)
 #     except TickerNotFoundException as e:
