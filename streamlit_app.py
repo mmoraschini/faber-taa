@@ -174,7 +174,7 @@ img = BytesIO(response.content)
 st.image(img)
 
 st.markdown("Repo of this project: https://github.com/mmoraschini/faber-taa")
-st.write("The information obtained from this script is for instructional purposes only and should be verified before \
+st.write(f"The information obtained from this script is for instructional purposes only and should be verified before \
 using it in any financial strategy. I am not a financial advisor and this project is not meant to give financial advices. \
 Please, contact a registered financial advisor if you are interested in investing your money.")
 
@@ -223,12 +223,14 @@ if submit_button:
 
         st.subheader("Info")
 
+        ticker_info = ticker.fast_info
+        
         try:
-            st.write(f"Description: {ticker.info['longName']}")
+            st.write(f"Description: {ticker_info['longName']}")
         except KeyError:
             st.write(f"Description: not available")
-        st.write(f"Exchange: {ticker.info['exchange']}")
-        st.write(f"Currency: {ticker.info['currency']}")
+        st.write(f"Exchange: {ticker_info['exchange']}")
+        st.write(f"Currency: {ticker_info['currency']}")
 
         st.subheader("Buy and sell signals")
 
